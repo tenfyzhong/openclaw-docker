@@ -14,6 +14,11 @@ This repository provides:
 
 - `Dockerfile`: image build and gateway entrypoint script
 - `docker-compose.yml`: local runtime configuration
+- `scripts/create-tag.sh`: local release tag creation helper
+- `.github/workflows/tag-build.yml`: builds and pushes Docker image on tag push
+- `.github/workflows/sync-upstream-major.yml`: manual workflow to sync latest upstream major tag
+- `.github/workflows/bats-tests.yml`: runs bats unit tests for release script changes
+- `tests/create-tag.bats`: unit tests for release tag script
 - `LICENSE`: MIT license
 
 ## Prerequisites
@@ -79,7 +84,6 @@ You can place these in a `.env` file next to `docker-compose.yml`.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `OPENCLAW_IMAGE` | `openclaw:local` | Image name used by Compose |
 | `OPENCLAW_VERSION` | `latest` | OpenClaw version passed to image build (`install.sh --version`) |
 | `OPENCLAW_GATEWAY_BIND` | `lan` | Gateway bind strategy passed to `openclaw gateway --bind` |
 | `OPENCLAW_GATEWAY_PORT` | `18789` | Gateway HTTP port |
@@ -127,6 +131,106 @@ docker run --rm -it \
   -v "$PWD/.docker/openclaw/workspace:/home/node/.openclaw/workspace" \
   openclaw:local gateway
 ```
+
+## Release Tag and Image Automation
+
+### Create a local release tag
+
+Use the script from repository root:
+
+```bash
+./scripts/create-tag.sh
+```
+
+Optional: force a specific major version:
+
+```bash
+./scripts/create-tag.sh --major 2026.3.11
+```
+
+Script behavior:
+
+- Always runs `git fetch --tags origin` first
+- Major version source is `openclaw/openclaw` stable tags only (`vX.Y.Z`, excludes `-beta.*`)
+- If `--major` is provided, it must exist in `openclaw/openclaw`
+- If local repo does not have `vX.Y.Z`, it creates `vX.Y.Z`
+- If local repo already has `vX.Y.Z`, it creates the next patch tag `vX.Y.Z.N` (auto increment)
+- It only creates local tag; push is manual
+
+Push manually when ready:
+
+```bash
+git push origin <tag>
+```
+
+### Auto build on tag push
+
+Workflow: `.github/workflows/tag-build.yml`
+
+- Trigger: `git push` of tag matching `v*`
+- Docker tags pushed:
+  - `tenfyzhong/openclaw:<git-tag-without-v>`
+  - `tenfyzhong/openclaw:latest`
+- Build arg `OPENCLAW_VERSION` always uses major base (`X.Y.Z`)
+  - Example: git tag `v2026.3.11.2` builds with `OPENCLAW_VERSION=2026.3.11`
+
+### Manual sync entry (GitHub Actions)
+
+Workflow: `.github/workflows/sync-upstream-major.yml`
+
+Run manually from GitHub:
+
+1. Open repository `Actions`
+2. Select `Sync Latest Upstream Major Tag`
+3. Click `Run workflow`
+
+Behavior:
+
+- Fetches latest stable major tag from `openclaw/openclaw`
+- Runs `git fetch --tags origin`
+- If this repo already has that major tag, exits with no changes
+- If missing, creates and pushes that major tag
+- Pushed tag triggers `tag-build.yml` to build/push Docker image
+
+## Required GitHub Secrets
+
+Configure repository secrets in `Settings` -> `Secrets and variables` -> `Actions`:
+
+- `DOCKERHUB_USERNAME`: Docker Hub username
+- `DOCKERHUB_TOKEN`: Docker Hub access token (for `docker/login-action`)
+- `RELEASE_PUSH_TOKEN`: GitHub token used by manual sync workflow to push tags
+
+### How to create `RELEASE_PUSH_TOKEN`
+
+Recommended: Fine-grained personal access token.
+
+1. GitHub avatar -> `Settings`
+2. `Developer settings` -> `Personal access tokens` -> `Fine-grained tokens`
+3. Click `Generate new token`
+4. Set token name and expiration
+5. `Repository access`: select only this repository
+6. `Repository permissions`:
+   - `Contents`: `Read and write`
+   - `Metadata`: `Read-only` (default)
+7. Generate token and copy it immediately
+8. Go back to repository `Settings` -> `Secrets and variables` -> `Actions`
+9. `New repository secret`
+10. Name: `RELEASE_PUSH_TOKEN`
+11. Value: the generated token
+
+After saving, rerun `Sync Latest Upstream Major Tag` workflow.
+
+## Run release script tests
+
+```bash
+bats tests/create-tag.bats
+```
+
+CI workflow `Bats Unit Tests` runs automatically on pull requests that modify:
+
+- `scripts/create-tag.sh`
+- `tests/create-tag.bats`
+- `.github/workflows/bats-tests.yml`
 
 ## Security Notes
 
