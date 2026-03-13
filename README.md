@@ -58,6 +58,21 @@ docker compose logs -f openclaw-gateway
 docker compose down
 ```
 
+## First-Time Onboarding in Container
+
+After the first startup, enter the container and run onboarding:
+
+```bash
+docker compose exec openclaw-gateway bash
+openclaw onboard
+```
+
+Notes for first-time setup:
+
+- During onboarding, the gateway process may restart.
+- If your current terminal session is interrupted, enter the container again and run `openclaw onboard` again.
+- Existing onboarding progress is reused from persisted config, so you only need to complete the remaining steps.
+
 ## Persistence and Default Paths
 
 By default, Compose maps the following host directories:
