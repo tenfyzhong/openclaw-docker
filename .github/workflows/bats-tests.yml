@@ -2,17 +2,11 @@ name: Bats Unit Tests
 
 on:
   pull_request:
-    paths:
-      - 'scripts/create-tag.sh'
-      - 'tests/create-tag.bats'
-      - '.github/workflows/bats-tests.yml'
+    branches:
+      - main
   push:
     branches:
       - main
-    paths:
-      - 'scripts/create-tag.sh'
-      - 'tests/create-tag.bats'
-      - '.github/workflows/bats-tests.yml'
   workflow_dispatch:
 
 permissions:

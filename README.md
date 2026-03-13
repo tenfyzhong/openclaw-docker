@@ -241,11 +241,24 @@ After saving, rerun `Sync Latest Upstream Major Tag` workflow.
 bats tests/create-tag.bats
 ```
 
-CI workflow `Bats Unit Tests` runs automatically on pull requests that modify:
+CI workflow `Bats Unit Tests` runs automatically on:
 
-- `scripts/create-tag.sh`
-- `tests/create-tag.bats`
-- `.github/workflows/bats-tests.yml`
+- All pull requests targeting `main`
+- Pushes to `main`
+
+## Protect `main` branch on GitHub
+
+To require CI success before merge and block direct pushes:
+
+1. Go to repository `Settings` -> `Branches` -> `Add branch protection rule`
+2. Set `Branch name pattern` to `main`
+3. Enable `Require a pull request before merging`
+4. Enable `Require status checks to pass before merging`
+5. Select status check `Bats Unit Tests / bats`
+6. Enable `Require branches to be up to date before merging` (recommended)
+7. Enable `Include administrators` (recommended)
+8. Disable direct push by enabling `Restrict who can push to matching branches` and leaving only trusted automation/users
+9. Keep `Allow force pushes` and `Allow deletions` disabled
 
 ## Security Notes
 
