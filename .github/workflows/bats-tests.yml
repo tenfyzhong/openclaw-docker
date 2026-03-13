@@ -1,0 +1,39 @@
+name: Bats Unit Tests
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/create-tag.sh'
+      - 'tests/create-tag.bats'
+      - '.github/workflows/bats-tests.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/create-tag.sh'
+      - 'tests/create-tag.bats'
+      - '.github/workflows/bats-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bats:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install bats
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y bats
+
+      - name: Run bats tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          bats tests/create-tag.bats

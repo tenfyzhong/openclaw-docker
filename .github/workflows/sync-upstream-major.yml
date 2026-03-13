@@ -1,0 +1,105 @@
+name: Sync Latest Upstream Major Tag
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-latest-upstream-major
+  cancel-in-progress: false
+
+jobs:
+  sync-major-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate RELEASE_PUSH_TOKEN
+        shell: bash
+        env:
+          RELEASE_PUSH_TOKEN: ${{ secrets.RELEASE_PUSH_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$RELEASE_PUSH_TOKEN" ]]; then
+            echo "RELEASE_PUSH_TOKEN is required" >&2
+            exit 1
+          fi
+
+      - name: Resolve latest stable upstream major tag
+        id: upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          latest_major="$(git ls-remote --tags --refs https://github.com/openclaw/openclaw.git 'v*' \
+            | sed -n 's|.*refs/tags/\(v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$|\1|p' \
+            | sort -V \
+            | tail -n 1)"
+
+          if [[ -z "$latest_major" ]]; then
+            echo "Failed to resolve latest stable upstream major tag" >&2
+            exit 1
+          fi
+
+          echo "latest_major=$latest_major" >>"$GITHUB_OUTPUT"
+
+      - name: Create and push missing major tag
+        id: sync
+        shell: bash
+        env:
+          RELEASE_PUSH_TOKEN: ${{ secrets.RELEASE_PUSH_TOKEN }}
+          LATEST_MAJOR: ${{ steps.upstream.outputs.latest_major }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git remote set-url origin "https://x-access-token:${RELEASE_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --tags origin
+
+          if git rev-parse -q --verify "refs/tags/${LATEST_MAJOR}" >/dev/null; then
+            echo "created=false" >>"$GITHUB_OUTPUT"
+            echo "tag=${LATEST_MAJOR}" >>"$GITHUB_OUTPUT"
+            echo "Tag already exists: ${LATEST_MAJOR}"
+            exit 0
+          fi
+
+          git tag "${LATEST_MAJOR}"
+
+          if git push origin "${LATEST_MAJOR}"; then
+            echo "created=true" >>"$GITHUB_OUTPUT"
+            echo "tag=${LATEST_MAJOR}" >>"$GITHUB_OUTPUT"
+            echo "Created and pushed tag: ${LATEST_MAJOR}"
+            exit 0
+          fi
+
+          git fetch --tags origin
+          if git rev-parse -q --verify "refs/tags/${LATEST_MAJOR}" >/dev/null; then
+            echo "created=false" >>"$GITHUB_OUTPUT"
+            echo "tag=${LATEST_MAJOR}" >>"$GITHUB_OUTPUT"
+            echo "Tag already exists after retry check: ${LATEST_MAJOR}"
+            exit 0
+          fi
+
+          echo "Failed to push tag: ${LATEST_MAJOR}" >&2
+          exit 1
+
+      - name: Summary
+        shell: bash
+        env:
+          CREATED: ${{ steps.sync.outputs.created }}
+          TAG_NAME: ${{ steps.sync.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ "$CREATED" == "true" ]]; then
+            echo "Created new tag ${TAG_NAME}; tag-build workflow should start from push event."
+          else
+            echo "No new tag created. Existing latest major tag is ${TAG_NAME}."
+          fi
