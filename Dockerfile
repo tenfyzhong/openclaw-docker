@@ -3,6 +3,7 @@
 FROM ubuntu:24.04
 
 ARG DEBIAN_FRONTEND=noninteractive
+ARG OPENCLAW_VERSION=latest
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -17,7 +18,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install OpenClaw from the official installer script (no source COPY).
-RUN curl -fsSL https://openclaw.ai/install.sh | bash -s -- --no-onboard
+RUN curl -fsSL https://openclaw.ai/install.sh | bash -s -- --no-onboard --version "${OPENCLAW_VERSION}"
 
 # Ensure openclaw is discoverable from a stable path.
 RUN /bin/bash -lc 'set -euo pipefail; \

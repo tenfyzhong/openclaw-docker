@@ -80,6 +80,7 @@ You can place these in a `.env` file next to `docker-compose.yml`.
 | Variable | Default | Description |
 | --- | --- | --- |
 | `OPENCLAW_IMAGE` | `openclaw:local` | Image name used by Compose |
+| `OPENCLAW_VERSION` | `latest` | OpenClaw version passed to image build (`install.sh --version`) |
 | `OPENCLAW_GATEWAY_BIND` | `lan` | Gateway bind strategy passed to `openclaw gateway --bind` |
 | `OPENCLAW_GATEWAY_PORT` | `18789` | Gateway HTTP port |
 | `OPENCLAW_BRIDGE_PORT` | `18790` | Bridge port exposed by Compose |
@@ -113,7 +114,7 @@ grep -n '"token"' ./.docker/openclaw/config/openclaw.json
 Build image:
 
 ```bash
-docker build -t openclaw:local .
+docker build --build-arg OPENCLAW_VERSION=2026.3.11 -t openclaw:local .
 ```
 
 Run container directly:
