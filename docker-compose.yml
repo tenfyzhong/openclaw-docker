@@ -1,10 +1,5 @@
 services:
   openclaw-gateway:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        OPENCLAW_VERSION: ${OPENCLAW_VERSION:-latest}
     image: tenfyzhong/openclaw:${OPENCLAW_VERSION:-latest}
     environment:
       HOME: /home/node

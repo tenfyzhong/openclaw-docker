@@ -14,11 +14,14 @@ This repository provides:
 
 - `Dockerfile`: image build and gateway entrypoint script
 - `docker-compose.yml`: local runtime configuration
+- `scripts/build-image.sh`: local image build/tag helper for Compose
 - `scripts/create-tag.sh`: local release tag creation helper
 - `.github/workflows/tag-build.yml`: builds and pushes Docker image on tag push
 - `.github/workflows/sync-upstream-major.yml`: manual workflow to sync latest upstream major tag
 - `.github/workflows/bats-tests.yml`: runs bats unit tests for release and workflow guardrails
 - `tests/create-tag.bats`: unit tests for release tag script
+- `tests/build-image.bats`: unit tests for local image build/tag script
+- `tests/docker-compose.bats`: unit tests for compose image-only guardrails
 - `tests/tag-build-workflow.bats`: unit tests for Docker image publish workflow guardrails
 - `LICENSE`: MIT license
 
@@ -29,31 +32,37 @@ This repository provides:
 
 ## Quick Start
 
-1. Build and start:
+1. Build local image for the default tag (`latest`):
 
 ```bash
-docker compose up -d --build
+./scripts/build-image.sh
 ```
 
-2. Check container status:
+2. Start service:
+
+```bash
+docker compose up -d
+```
+
+3. Check container status:
 
 ```bash
 docker compose ps
 ```
 
-3. Check gateway health endpoint:
+4. Check gateway health endpoint:
 
 ```bash
 curl http://127.0.0.1:18789/healthz
 ```
 
-4. Read logs:
+5. Read logs:
 
 ```bash
 docker compose logs -f openclaw-gateway
 ```
 
-5. Stop service:
+6. Stop service:
 
 ```bash
 docker compose down
@@ -100,7 +109,7 @@ You can place these in a `.env` file next to `docker-compose.yml`.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `OPENCLAW_VERSION` | `latest` | OpenClaw version passed to image build (`install.sh --version`) |
+| `OPENCLAW_VERSION` | `latest` | Runtime image tag in Compose (also used by `scripts/build-image.sh` when `--tag` is omitted) |
 | `OPENCLAW_GATEWAY_BIND` | `lan` | Gateway bind strategy passed to `openclaw gateway --bind` |
 | `OPENCLAW_GATEWAY_PORT` | `18789` | Gateway HTTP port |
 | `OPENCLAW_BRIDGE_PORT` | `18790` | Bridge port exposed by Compose |
@@ -129,12 +138,24 @@ If `jq` is not installed:
 grep -n '"token"' ./.docker/openclaw/config/openclaw.json
 ```
 
-## Manual Image Build and Run
+## Local Image Build and Run
 
-Build image:
+Build image with helper script:
 
 ```bash
-docker build --build-arg OPENCLAW_VERSION=2026.3.11 -t openclaw:local .
+./scripts/build-image.sh --tag 2026.3.11.2
+```
+
+Or build manually:
+
+```bash
+docker build --build-arg OPENCLAW_VERSION=2026.3.11 -t tenfyzhong/openclaw:2026.3.11.2 .
+```
+
+When using Compose with a custom tag, use the same `OPENCLAW_VERSION` value:
+
+```bash
+OPENCLAW_VERSION=2026.3.11.2 docker compose up -d
 ```
 
 Run container directly:
@@ -145,7 +166,7 @@ docker run --rm -it \
   -e OPENCLAW_GATEWAY_BIND=lan \
   -v "$PWD/.docker/openclaw/config:/home/node/.openclaw" \
   -v "$PWD/.docker/openclaw/workspace:/home/node/.openclaw/workspace" \
-  openclaw:local gateway
+  tenfyzhong/openclaw:2026.3.11.2 gateway
 ```
 
 ## Release Tag and Image Automation
