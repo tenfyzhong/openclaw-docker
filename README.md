@@ -17,8 +17,9 @@ This repository provides:
 - `scripts/create-tag.sh`: local release tag creation helper
 - `.github/workflows/tag-build.yml`: builds and pushes Docker image on tag push
 - `.github/workflows/sync-upstream-major.yml`: manual workflow to sync latest upstream major tag
-- `.github/workflows/bats-tests.yml`: runs bats unit tests for release script changes
+- `.github/workflows/bats-tests.yml`: runs bats unit tests for release and workflow guardrails
 - `tests/create-tag.bats`: unit tests for release tag script
+- `tests/tag-build-workflow.bats`: unit tests for Docker image publish workflow guardrails
 - `LICENSE`: MIT license
 
 ## Prerequisites
@@ -186,8 +187,27 @@ Workflow: `.github/workflows/tag-build.yml`
 - Docker tags pushed:
   - `tenfyzhong/openclaw:<git-tag-without-v>`
   - `tenfyzhong/openclaw:latest`
+- Platforms:
+  - `linux/amd64`
+  - `linux/arm64`
 - Build arg `OPENCLAW_VERSION` always uses major base (`X.Y.Z`)
   - Example: git tag `v2026.3.11.2` builds with `OPENCLAW_VERSION=2026.3.11`
+  - Both tags are published as multi-arch manifest lists on Docker Hub
+
+### Manual multi-arch push to Docker Hub
+
+```bash
+docker login -u "$DOCKERHUB_USERNAME"
+docker buildx create --name openclaw-multiarch --driver docker-container --use
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  --build-arg OPENCLAW_VERSION=2026.3.11 \
+  -t tenfyzhong/openclaw:2026.3.11-local \
+  --push \
+  .
+```
+
+If buildx builder already exists, reuse it and skip `docker buildx create`.
 
 ### Manual sync entry (GitHub Actions)
 
@@ -238,7 +258,7 @@ After saving, rerun `Sync Latest Upstream Major Tag` workflow.
 ## Run release script tests
 
 ```bash
-bats tests/create-tag.bats
+bats tests/*.bats
 ```
 
 CI workflow `Bats Unit Tests` runs automatically on:

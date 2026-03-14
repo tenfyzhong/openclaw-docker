@@ -30,4 +30,4 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bats tests/create-tag.bats
+          bats tests/*.bats
