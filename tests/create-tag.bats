@@ -102,3 +102,33 @@ write_upstream_tags() {
   [ "$status" -eq 0 ]
   [ "$output" = "v2026.3.11.1" ]
 }
+
+@test "resolves major from upstream dash patch tags" {
+  setup_test_repo "dash-patch-major"
+  tags_file="$(write_upstream_tags "v2026.3.12" "v2026.3.13-1")"
+
+  cd "$REPO_DIR"
+  run env OPENCLAW_UPSTREAM_TAGS_FILE="$tags_file" "$SCRIPT_PATH"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Created local tag: v2026.3.13"* ]]
+
+  run git -C "$REPO_DIR" tag --list "v2026.3.13"
+  [ "$status" -eq 0 ]
+  [ "$output" = "v2026.3.13" ]
+}
+
+@test "accepts provided major when upstream has dash patch tag" {
+  setup_test_repo "dash-patch-major-validation"
+  tags_file="$(write_upstream_tags "v2026.3.13-1")"
+
+  cd "$REPO_DIR"
+  run env OPENCLAW_UPSTREAM_TAGS_FILE="$tags_file" "$SCRIPT_PATH" --major 2026.3.13
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Created local tag: v2026.3.13"* ]]
+
+  run git -C "$REPO_DIR" tag --list "v2026.3.13"
+  [ "$status" -eq 0 ]
+  [ "$output" = "v2026.3.13" ]
+}

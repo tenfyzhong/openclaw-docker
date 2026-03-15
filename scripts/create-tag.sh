@@ -34,16 +34,24 @@ normalize_major_tag() {
   echo "v$trimmed"
 }
 
-load_upstream_stable_tags() {
+normalize_upstream_major_tags() {
+  sed -n \
+    -e 's/^\(v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$/\1/p' \
+    -e 's/^\(v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)-[0-9][0-9]*$/\1/p' \
+    | sort -u
+}
+
+load_upstream_major_tags() {
   if [[ -n "$UPSTREAM_TAGS_FILE" ]]; then
     [[ -f "$UPSTREAM_TAGS_FILE" ]] || die "OPENCLAW_UPSTREAM_TAGS_FILE does not exist: $UPSTREAM_TAGS_FILE"
-    sed -n 's/^\(v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$/\1/p' "$UPSTREAM_TAGS_FILE" | sort -u
+    normalize_upstream_major_tags < "$UPSTREAM_TAGS_FILE"
     return 0
   fi
 
   git ls-remote --tags --refs "$UPSTREAM_REPO_URL" 'v*' \
-    | sed -n 's|.*refs/tags/\(v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$|\1|p' \
-    | sort -u
+    | awk '{print $2}' \
+    | sed -n 's|^refs/tags/\(v[^[:space:]]\+\)$|\1|p' \
+    | normalize_upstream_major_tags
 }
 
 resolve_major_tag() {
@@ -62,7 +70,7 @@ resolve_major_tag() {
 
   local latest_major
   latest_major="$(printf '%s\n' "$upstream_tags" | sort -V | tail -n 1)"
-  [[ -n "$latest_major" ]] || die "cannot resolve latest stable major tag from openclaw/openclaw"
+  [[ -n "$latest_major" ]] || die "cannot resolve latest major tag from openclaw/openclaw"
   echo "$latest_major"
 }
 
@@ -129,8 +137,8 @@ main() {
   git fetch --tags origin >/dev/null
 
   local upstream_tags
-  upstream_tags="$(load_upstream_stable_tags)"
-  [[ -n "$upstream_tags" ]] || die "no stable tags found in openclaw/openclaw"
+  upstream_tags="$(load_upstream_major_tags)"
+  [[ -n "$upstream_tags" ]] || die "no major tags found in openclaw/openclaw"
 
   local major_tag
   major_tag="$(resolve_major_tag "$requested_major" "$upstream_tags")"

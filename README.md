@@ -196,7 +196,10 @@ Optional: force a specific major version:
 Script behavior:
 
 - Always runs `git fetch --tags origin` first
-- Major version source is `openclaw/openclaw` stable tags only (`vX.Y.Z`, excludes `-beta.*`)
+- Major version source is `openclaw/openclaw` release tags:
+  - `vX.Y.Z`
+  - `vX.Y.Z-N` (treated as major `vX.Y.Z`)
+  - Pre-release tags like `-beta.*` are ignored
 - If `--major` is provided, it must exist in `openclaw/openclaw`
 - If local repo does not have `vX.Y.Z`, it creates `vX.Y.Z`
 - If local repo already has `vX.Y.Z`, it creates the next patch tag `vX.Y.Z.N` (auto increment)
