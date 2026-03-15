@@ -258,6 +258,11 @@ Workflow: `.github/workflows/tag-build.yml`
 - Platforms:
   - `linux/amd64`
   - `linux/arm64`
+- Also creates a GitHub Release for the same tag
+- Release notes include Docker image usage examples:
+  - `docker pull tenfyzhong/openclaw:<git-tag-without-v>`
+  - `OPENCLAW_VERSION=<git-tag-without-v> docker compose up -d`
+  - Direct `docker run` command example
 - Build arg `OPENCLAW_VERSION` always uses major base (`X.Y.Z`)
   - Example: git tag `v2026.3.11.2` builds with `OPENCLAW_VERSION=2026.3.11`
   - Both tags are published as multi-arch manifest lists on Docker Hub

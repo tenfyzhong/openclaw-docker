@@ -21,3 +21,19 @@ setup() {
   run grep -E '^[[:space:]]*uses:[[:space:]]*docker/setup-qemu-action@v3[[:space:]]*$' "$WORKFLOW_FILE"
   [ "$status" -eq 0 ]
 }
+
+@test "tag-build workflow can create GitHub release on tag push" {
+  run grep -E '^[[:space:]]*contents:[[:space:]]*write[[:space:]]*$' "$WORKFLOW_FILE"
+  [ "$status" -eq 0 ]
+
+  run grep -E '^[[:space:]]*uses:[[:space:]]*softprops/action-gh-release@v2[[:space:]]*$' "$WORKFLOW_FILE"
+  [ "$status" -eq 0 ]
+}
+
+@test "tag-build workflow release notes include docker usage" {
+  run grep -E 'docker pull tenfyzhong/openclaw:\$\{\{ steps.vars.outputs.image_tag \}\}' "$WORKFLOW_FILE"
+  [ "$status" -eq 0 ]
+
+  run grep -E 'OPENCLAW_VERSION=\$\{\{ steps.vars.outputs.image_tag \}\} docker compose up -d' "$WORKFLOW_FILE"
+  [ "$status" -eq 0 ]
+}
