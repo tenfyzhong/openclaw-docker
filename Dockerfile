@@ -57,6 +57,8 @@ OPENCLAW_WORKSPACE_DIR="${OPENCLAW_WORKSPACE_DIR:-${OPENCLAW_STATE_DIR}/workspac
 OPENCLAW_GATEWAY_BIND="${OPENCLAW_GATEWAY_BIND:-lan}"
 OPENCLAW_GATEWAY_PORT="${OPENCLAW_GATEWAY_PORT:-18789}"
 OPENCLAW_INIT_GATEWAY_MODE="${OPENCLAW_INIT_GATEWAY_MODE:-local}"
+OPENCLAW_STDOUT_LOG_PATH="${OPENCLAW_STDOUT_LOG_PATH:-${OPENCLAW_STATE_DIR}/logs/openclaw.stdout.log}"
+OPENCLAW_STDERR_LOG_PATH="${OPENCLAW_STDERR_LOG_PATH:-${OPENCLAW_STATE_DIR}/logs/openclaw.stderr.log}"
 
 bool_to_json() {
   local raw="${1:-}"
@@ -85,6 +87,10 @@ mkdir_state_dirs() {
   mkdir -p "$OPENCLAW_STATE_DIR/identity"
   mkdir -p "$OPENCLAW_STATE_DIR/agents/main/agent"
   mkdir -p "$OPENCLAW_STATE_DIR/agents/main/sessions"
+  mkdir -p "$OPENCLAW_STATE_DIR/logs"
+  mkdir -p "$(dirname "$OPENCLAW_STDOUT_LOG_PATH")"
+  mkdir -p "$(dirname "$OPENCLAW_STDERR_LOG_PATH")"
+  touch "$OPENCLAW_STDOUT_LOG_PATH" "$OPENCLAW_STDERR_LOG_PATH"
   mkdir -p "$OPENCLAW_WORKSPACE_DIR/.openclaw"
 }
 
@@ -96,6 +102,11 @@ fix_permissions() {
   # Keep ownership fixes scoped to OpenClaw state paths to avoid rewriting
   # unrelated workspace content on bind mounts.
   chown "$OPENCLAW_USER:$OPENCLAW_GROUP" "$OPENCLAW_HOME" "$OPENCLAW_STATE_DIR" "$OPENCLAW_WORKSPACE_DIR"
+  chown "$OPENCLAW_USER:$OPENCLAW_GROUP" \
+    "$(dirname "$OPENCLAW_STDOUT_LOG_PATH")" \
+    "$(dirname "$OPENCLAW_STDERR_LOG_PATH")" \
+    "$OPENCLAW_STDOUT_LOG_PATH" \
+    "$OPENCLAW_STDERR_LOG_PATH"
   find "$OPENCLAW_STATE_DIR" -xdev -exec chown "$OPENCLAW_USER:$OPENCLAW_GROUP" {} +
   if [[ -d "$OPENCLAW_WORKSPACE_DIR/.openclaw" ]]; then
     chown -R "$OPENCLAW_USER:$OPENCLAW_GROUP" "$OPENCLAW_WORKSPACE_DIR/.openclaw"
@@ -213,10 +224,11 @@ ensure_config() {
 }
 
 run_as_node() {
+  local cmd=("$@")
   if [[ "$(id -u)" -eq 0 ]]; then
-    exec gosu "$OPENCLAW_USER:$OPENCLAW_GROUP" "$@"
+    exec gosu "$OPENCLAW_USER:$OPENCLAW_GROUP" "${cmd[@]}" >>"$OPENCLAW_STDOUT_LOG_PATH" 2>>"$OPENCLAW_STDERR_LOG_PATH"
   fi
-  exec "$@"
+  exec "${cmd[@]}" >>"$OPENCLAW_STDOUT_LOG_PATH" 2>>"$OPENCLAW_STDERR_LOG_PATH"
 }
 
 main() {
