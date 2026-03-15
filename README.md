@@ -56,10 +56,11 @@ docker compose ps
 curl http://127.0.0.1:18789/healthz
 ```
 
-5. Read logs:
+5. Read gateway logs:
 
 ```bash
-docker compose logs -f openclaw-gateway
+docker compose exec openclaw-gateway tail -f /home/node/.openclaw/logs/openclaw.stdout.log
+docker compose exec openclaw-gateway tail -f /home/node/.openclaw/logs/openclaw.stderr.log
 ```
 
 6. Stop service:
@@ -92,6 +93,11 @@ By default, Compose maps the following host directories:
 
 The container entrypoint creates these directories automatically when needed.
 
+Gateway process output is redirected to files inside the state volume:
+
+- stdout: `/home/node/.openclaw/logs/openclaw.stdout.log`
+- stderr: `/home/node/.openclaw/logs/openclaw.stderr.log`
+
 ## First-Run Config Initialization
 
 If `/home/node/.openclaw/openclaw.json` does not exist, the entrypoint generates it with:
@@ -117,6 +123,8 @@ You can place these in a `.env` file next to `docker-compose.yml`.
 | `OPENCLAW_INIT_GATEWAY_MODE` | `local` | Initial `gateway.mode` for generated config |
 | `OPENCLAW_INIT_CONTROL_UI_ALLOWED_ORIGINS` | auto | JSON array string for allowed control UI origins |
 | `OPENCLAW_GATEWAY_CONTROLUI_DANGEROUSLY_ALLOW_HOST_HEADER_ORIGIN_FALLBACK` | `false` | Initial fallback behavior in generated config |
+| `OPENCLAW_STDOUT_LOG_PATH` | `/home/node/.openclaw/logs/openclaw.stdout.log` | OpenClaw process stdout log file path |
+| `OPENCLAW_STDERR_LOG_PATH` | `/home/node/.openclaw/logs/openclaw.stderr.log` | OpenClaw process stderr log file path |
 | `OPENCLAW_ALLOW_INSECURE_PRIVATE_WS` | empty | Forwarded to container runtime environment |
 | `OPENCLAW_CONFIG_DIR` | `./.docker/openclaw/config` | Host directory for OpenClaw state/config |
 | `OPENCLAW_WORKSPACE_DIR` | `./.docker/openclaw/workspace` | Host directory for workspace |
