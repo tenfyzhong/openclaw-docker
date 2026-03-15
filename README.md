@@ -6,6 +6,7 @@ This repository provides:
 
 - A production-oriented `Dockerfile` based on Ubuntu 24.04
 - Automatic OpenClaw installation from the official installer
+- Preinstalled Lark tools CLI (`@larksuite/openclaw-lark-tools`) for direct in-container use
 - A startup entrypoint that initializes `openclaw.json` on first run
 - Persistent config/workspace volumes for local development and daily use
 - A ready-to-run `docker-compose.yml` service definition
@@ -119,6 +120,18 @@ Notes for first-time setup:
 - During onboarding, the gateway process may restart.
 - If your current terminal session is interrupted, enter the container again and run `openclaw onboard` again.
 - Existing onboarding progress is reused from persisted config, so you only need to complete the remaining steps.
+
+## Preinstalled Lark Tools CLI
+
+The image preinstalls `@larksuite/openclaw-lark-tools`. Inside the running container, use:
+
+```bash
+docker compose exec -u node openclaw-gateway feishu-plugin-onboard install
+# Alias (same command):
+docker compose exec -u node openclaw-gateway openclaw-lark-tools install
+```
+
+This is equivalent to `npx -y @larksuite/openclaw-lark-tools install`, but without downloading the CLI package each time.
 
 ## Persistence and Default Paths
 

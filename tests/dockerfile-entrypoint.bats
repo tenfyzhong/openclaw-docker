@@ -22,3 +22,14 @@ setup() {
   run grep -F 'exec "${cmd[@]}" >>"$OPENCLAW_STDOUT_LOG_PATH" 2>>"$OPENCLAW_STDERR_LOG_PATH"' "$DOCKERFILE"
   [ "$status" -eq 0 ]
 }
+
+@test "dockerfile preinstalls openclaw lark tools cli" {
+  run grep -F 'npm install -g @larksuite/openclaw-lark-tools' "$DOCKERFILE"
+  [ "$status" -eq 0 ]
+
+  run grep -F 'ln -sf "$LARK_TOOLS_BIN" /usr/local/bin/feishu-plugin-onboard' "$DOCKERFILE"
+  [ "$status" -eq 0 ]
+
+  run grep -F 'ln -sf "$LARK_TOOLS_BIN" /usr/local/bin/openclaw-lark-tools' "$DOCKERFILE"
+  [ "$status" -eq 0 ]
+}

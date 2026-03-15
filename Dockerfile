@@ -36,6 +36,28 @@ RUN /bin/bash -lc 'set -euo pipefail; \
     ln -sf "$OPENCLAW_BIN" /usr/local/bin/openclaw; \
     openclaw --help >/dev/null'
 
+# Pre-install Lark tools CLI so it can run directly in the container.
+RUN /bin/bash -lc 'set -euo pipefail; \
+    if ! command -v npm >/dev/null 2>&1; then \
+      echo "npm command not found after OpenClaw installer" >&2; \
+      exit 1; \
+    fi; \
+    npm install -g @larksuite/openclaw-lark-tools; \
+    LARK_TOOLS_BIN="$(command -v feishu-plugin-onboard || true)"; \
+    if [[ -z "$LARK_TOOLS_BIN" && -x /root/.npm-global/bin/feishu-plugin-onboard ]]; then \
+      LARK_TOOLS_BIN=/root/.npm-global/bin/feishu-plugin-onboard; \
+    fi; \
+    if [[ -z "$LARK_TOOLS_BIN" && -x /root/.local/bin/feishu-plugin-onboard ]]; then \
+      LARK_TOOLS_BIN=/root/.local/bin/feishu-plugin-onboard; \
+    fi; \
+    if [[ -z "$LARK_TOOLS_BIN" ]]; then \
+      echo "feishu-plugin-onboard command not found after npm install" >&2; \
+      exit 1; \
+    fi; \
+    ln -sf "$LARK_TOOLS_BIN" /usr/local/bin/feishu-plugin-onboard; \
+    ln -sf "$LARK_TOOLS_BIN" /usr/local/bin/openclaw-lark-tools; \
+    feishu-plugin-onboard --help >/dev/null'
+
 RUN if ! getent group node >/dev/null; then \
       groupadd --system node || groupadd node; \
     fi && \
