@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-and-push:
@@ -56,3 +56,39 @@ jobs:
           tags: |
             tenfyzhong/openclaw:${{ steps.vars.outputs.image_tag }}
             tenfyzhong/openclaw:latest
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          body: |
+            ## Docker image
+
+            Published image tags:
+
+            - `tenfyzhong/openclaw:${{ steps.vars.outputs.image_tag }}`
+            - `tenfyzhong/openclaw:latest`
+
+            Pull image:
+
+            ```bash
+            docker pull tenfyzhong/openclaw:${{ steps.vars.outputs.image_tag }}
+            ```
+
+            Run with docker compose:
+
+            ```bash
+            OPENCLAW_VERSION=${{ steps.vars.outputs.image_tag }} docker compose up -d
+            ```
+
+            Run container directly:
+
+            ```bash
+            docker run --rm -it \
+              -p 18789:18789 -p 18790:18790 \
+              -e OPENCLAW_GATEWAY_BIND=lan \
+              -v "$PWD/.docker/openclaw/config:/home/node/.openclaw" \
+              -v "$PWD/.docker/openclaw/workspace:/home/node/.openclaw/workspace" \
+              tenfyzhong/openclaw:${{ steps.vars.outputs.image_tag }} gateway
+            ```
