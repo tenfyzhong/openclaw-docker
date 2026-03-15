@@ -27,8 +27,40 @@ This repository provides:
 
 ## Prerequisites
 
-- Docker Engine with Docker Compose v2
+- Docker Engine with Docker Compose v2 (or Podman with podman-compose)
 - Network access during image build (for package install and OpenClaw installer)
+
+## Using Podman Instead of Docker
+
+This project supports both Docker and Podman. To use Podman:
+
+1. Install Podman and podman-compose:
+```bash
+sudo apt-get install podman uidmap
+pip install podman-compose
+```
+
+2. Set the `CONTAINER_RUNTIME` environment variable:
+```bash
+export CONTAINER_RUNTIME=podman
+```
+
+3. Use the provided wrapper script for compose commands:
+```bash
+./scripts/compose.sh up -d
+./scripts/compose.sh ps
+./scripts/compose.sh down
+```
+
+Or use podman-compose directly:
+```bash
+podman-compose up -d
+```
+
+For building images with Podman:
+```bash
+CONTAINER_RUNTIME=podman ./scripts/build-image.sh
+```
 
 ## Quick Start
 
@@ -42,12 +74,14 @@ This repository provides:
 
 ```bash
 docker compose up -d
+# Or use the wrapper script: ./scripts/compose.sh up -d
 ```
 
 3. Check container status:
 
 ```bash
 docker compose ps
+# Or: ./scripts/compose.sh ps
 ```
 
 4. Check gateway health endpoint:
@@ -61,12 +95,14 @@ curl http://127.0.0.1:18789/healthz
 ```bash
 docker compose exec openclaw-gateway tail -f /home/node/.openclaw/logs/openclaw.stdout.log
 docker compose exec openclaw-gateway tail -f /home/node/.openclaw/logs/openclaw.stderr.log
+# Or: ./scripts/compose.sh exec openclaw-gateway tail -f /home/node/.openclaw/logs/openclaw.stdout.log
 ```
 
 6. Stop service:
 
 ```bash
 docker compose down
+# Or: ./scripts/compose.sh down
 ```
 
 ## First-Time Onboarding in Container

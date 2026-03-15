@@ -2,17 +2,21 @@
 set -euo pipefail
 
 IMAGE_REPO="${OPENCLAW_IMAGE_REPO:-tenfyzhong/openclaw}"
+CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-docker}"
 
 usage() {
   cat <<'USAGE'
 Usage: scripts/build-image.sh [--tag <tag>]
 
-Build local Docker image for docker-compose runtime.
+Build local container image for compose runtime.
 
 Options:
   --tag <tag>  Build image tag. Supports latest, 2026.3.11, 2026.3.11.2 and v-prefixed forms.
                Default: value of OPENCLAW_VERSION or latest
   -h, --help   Show this help message
+
+Environment Variables:
+  CONTAINER_RUNTIME  Container runtime to use (docker or podman). Default: docker
 USAGE
 }
 
@@ -40,8 +44,6 @@ resolve_tag() {
 }
 
 main() {
-  command -v docker >/dev/null 2>&1 || die "docker command not found"
-
   local tag_input="${OPENCLAW_VERSION:-latest}"
 
   while [[ $# -gt 0 ]]; do
@@ -61,6 +63,8 @@ main() {
     esac
   done
 
+  command -v "$CONTAINER_RUNTIME" >/dev/null 2>&1 || die "$CONTAINER_RUNTIME command not found"
+
   resolve_tag "$tag_input"
 
   local script_dir
@@ -70,7 +74,7 @@ main() {
 
   local image_ref="${IMAGE_REPO}:${IMAGE_TAG}"
 
-  docker build \
+  "$CONTAINER_RUNTIME" build \
     --build-arg "OPENCLAW_VERSION=${OPENCLAW_MAJOR}" \
     -t "$image_ref" \
     "$repo_root"
