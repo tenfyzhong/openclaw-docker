@@ -85,8 +85,10 @@ Podman supports rootless containers, so regular users can build, run, and manage
 1. Install Podman and a Compose frontend (example for Debian/Ubuntu). For other platforms, see the [official Podman installation guide](https://podman.io/docs/installation):
 ```bash
 sudo apt-get install podman uidmap
-python3 -m pip install podman-compose
+python3 -m pip install --user podman-compose
 ```
+
+Make sure `~/.local/bin` is in your `PATH` if you install `podman-compose` with `--user`.
 
 2. Set the `CONTAINER_RUNTIME` environment variable for your current shell:
 ```bash
