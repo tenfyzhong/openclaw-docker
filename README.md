@@ -82,7 +82,7 @@ docker compose down
 
 Podman supports rootless containers, so regular users can build, run, and manage them without `sudo`. To use Podman:
 
-1. Install Podman and a Compose frontend:
+1. Install Podman and a Compose frontend (example for Debian/Ubuntu). For other platforms, see the [official Podman installation guide](https://podman.io/docs/installation):
 ```bash
 sudo apt-get install podman uidmap
 python3 -m pip install podman-compose

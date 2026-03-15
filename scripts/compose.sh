@@ -30,33 +30,33 @@ main() {
     exit 0
   fi
 
-  local compose_cmd
+  local -a compose_cmd
 
   case "$CONTAINER_RUNTIME" in
     docker)
-      if command -v docker >/dev/null 2>&1; then
-        if docker compose version >/dev/null 2>&1; then
-          compose_cmd="docker compose"
-        elif command -v docker-compose >/dev/null 2>&1; then
-          compose_cmd="docker-compose"
-        else
-          die "docker compose or docker-compose not found"
-        fi
-      else
+      if ! command -v docker >/dev/null 2>&1; then
         die "docker command not found"
+      fi
+
+      if docker compose version >/dev/null 2>&1; then
+        compose_cmd=(docker compose)
+      elif command -v docker-compose >/dev/null 2>&1; then
+        compose_cmd=(docker-compose)
+      else
+        die "docker compose or docker-compose not found"
       fi
       ;;
     podman)
-      if command -v podman >/dev/null 2>&1; then
-        if podman compose version >/dev/null 2>&1; then
-          compose_cmd="podman compose"
-        elif command -v podman-compose >/dev/null 2>&1; then
-          compose_cmd="podman-compose"
-        else
-          die "podman compose or podman-compose not found"
-        fi
-      else
+      if ! command -v podman >/dev/null 2>&1; then
         die "podman command not found"
+      fi
+
+      if podman compose version >/dev/null 2>&1; then
+        compose_cmd=(podman compose)
+      elif command -v podman-compose >/dev/null 2>&1; then
+        compose_cmd=(podman-compose)
+      else
+        die "podman compose or podman-compose not found"
       fi
       ;;
     *)
@@ -64,8 +64,8 @@ main() {
       ;;
   esac
 
-  echo "Using: $compose_cmd" >&2
-  exec $compose_cmd "$@"
+  echo "Using: ${compose_cmd[*]}" >&2
+  exec "${compose_cmd[@]}" "$@"
 }
 
 main "$@"
