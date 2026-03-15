@@ -27,43 +27,14 @@ This repository provides:
 
 ## Prerequisites
 
-- Docker Engine with Docker Compose v2 (or Podman with podman-compose)
+- Docker Engine with Docker Compose v2, or Podman with `podman compose` / `podman-compose`
 - Network access during image build (for package install and OpenClaw installer)
-
-## Using Podman Instead of Docker
-
-This project supports both Docker and Podman. To use Podman:
-
-1. Install Podman and podman-compose:
-```bash
-sudo apt-get install podman uidmap
-pip install podman-compose
-```
-
-2. Set the `CONTAINER_RUNTIME` environment variable:
-```bash
-export CONTAINER_RUNTIME=podman
-```
-
-3. Use the provided wrapper script for compose commands:
-```bash
-./scripts/compose.sh up -d
-./scripts/compose.sh ps
-./scripts/compose.sh down
-```
-
-Or use podman-compose directly:
-```bash
-podman-compose up -d
-```
-
-For building images with Podman:
-```bash
-CONTAINER_RUNTIME=podman ./scripts/build-image.sh
-```
 
 ## Quick Start
 
+This project supports both Docker and [Podman](https://podman.io/). The examples below use Docker by default; if you prefer Podman, set `CONTAINER_RUNTIME=podman` and use `./scripts/compose.sh`.
+
+### Using Docker (by default)
 1. Build local image for the default tag (`latest`):
 
 ```bash
@@ -105,12 +76,50 @@ docker compose down
 # Or: ./scripts/compose.sh down
 ```
 
+### Using Podman Instead of Docker
+<details>
+  <summary>Click to expand instructions</summary>
+
+Podman supports rootless containers, so regular users can build, run, and manage them without `sudo`. To use Podman:
+
+1. Install Podman and a Compose frontend (example for Debian/Ubuntu). For other platforms, see the [official Podman installation guide](https://podman.io/docs/installation):
+```bash
+sudo apt-get install podman uidmap
+python3 -m pip install --user podman-compose
+```
+
+Make sure `~/.local/bin` is in your `PATH` if you install `podman-compose` with `--user`.
+
+2. Set the `CONTAINER_RUNTIME` environment variable for your current shell:
+```bash
+export CONTAINER_RUNTIME=podman
+```
+
+3. Build the local image and manage the service with the provided helper scripts:
+```bash
+./scripts/build-image.sh
+./scripts/compose.sh up -d
+./scripts/compose.sh ps
+./scripts/compose.sh down
+```
+
+The wrapper automatically uses `podman compose` when available and falls back to `podman-compose`.
+
+Or run Podman Compose directly:
+```bash
+podman compose up -d
+# Fallback: podman-compose up -d
+```
+
+</details>
+
 ## First-Time Onboarding in Container
 
 After the first startup, enter the container and run onboarding:
 
 ```bash
 docker compose exec openclaw-gateway bash
+# Or: ./scripts/compose.sh exec openclaw-gateway bash
 openclaw onboard
 ```
 
