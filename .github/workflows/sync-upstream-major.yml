@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: sync-latest-upstream-major
@@ -13,6 +13,8 @@ concurrency:
 jobs:
   sync-major-tag:
     runs-on: ubuntu-latest
+    env:
+      UPSTREAM_VERSION_FILE: OPENCLAW_UPSTREAM_VERSION
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -49,7 +51,7 @@ jobs:
 
           echo "latest_major=$latest_major" >>"$GITHUB_OUTPUT"
 
-      - name: Create and push missing major tag
+      - name: Sync upstream version file and tag
         id: sync
         shell: bash
         env:
@@ -64,42 +66,51 @@ jobs:
           git remote set-url origin "https://x-access-token:${RELEASE_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git fetch --tags origin
 
-          if git rev-parse -q --verify "refs/tags/${LATEST_MAJOR}" >/dev/null; then
-            echo "created=false" >>"$GITHUB_OUTPUT"
-            echo "tag=${LATEST_MAJOR}" >>"$GITHUB_OUTPUT"
-            echo "Tag already exists: ${LATEST_MAJOR}"
-            exit 0
+          current_major=""
+          if [[ -f "${UPSTREAM_VERSION_FILE}" ]]; then
+            current_major="$(cat "${UPSTREAM_VERSION_FILE}")"
           fi
 
-          git tag "${LATEST_MAJOR}"
+          version_updated="false"
+          if [[ "${current_major}" != "${LATEST_MAJOR}" ]]; then
+            printf '%s\n' "${LATEST_MAJOR}" > "${UPSTREAM_VERSION_FILE}"
+            git add "${UPSTREAM_VERSION_FILE}"
+            git commit -s -m "chore: sync upstream version to ${LATEST_MAJOR}"
+            git push origin HEAD:"${GITHUB_REF_NAME}"
+            version_updated="true"
+            echo "Updated ${UPSTREAM_VERSION_FILE}: ${current_major:-<empty>} -> ${LATEST_MAJOR}"
+          else
+            echo "${UPSTREAM_VERSION_FILE} already at ${LATEST_MAJOR}"
+          fi
 
-          if git push origin "${LATEST_MAJOR}"; then
-            echo "created=true" >>"$GITHUB_OUTPUT"
-            echo "tag=${LATEST_MAJOR}" >>"$GITHUB_OUTPUT"
+          created="false"
+          if git ls-remote --tags --exit-code origin "refs/tags/${LATEST_MAJOR}" >/dev/null 2>&1; then
+            echo "Tag already exists on origin: ${LATEST_MAJOR}"
+          else
+            git tag "${LATEST_MAJOR}"
+            git push origin "${LATEST_MAJOR}"
+            created="true"
             echo "Created and pushed tag: ${LATEST_MAJOR}"
-            exit 0
           fi
 
-          git fetch --tags origin
-          if git rev-parse -q --verify "refs/tags/${LATEST_MAJOR}" >/dev/null; then
-            echo "created=false" >>"$GITHUB_OUTPUT"
-            echo "tag=${LATEST_MAJOR}" >>"$GITHUB_OUTPUT"
-            echo "Tag already exists after retry check: ${LATEST_MAJOR}"
-            exit 0
-          fi
-
-          echo "Failed to push tag: ${LATEST_MAJOR}" >&2
-          exit 1
+          echo "version_updated=${version_updated}" >>"$GITHUB_OUTPUT"
+          echo "created=${created}" >>"$GITHUB_OUTPUT"
+          echo "tag=${LATEST_MAJOR}" >>"$GITHUB_OUTPUT"
 
       - name: Summary
         shell: bash
         env:
+          VERSION_UPDATED: ${{ steps.sync.outputs.version_updated }}
           CREATED: ${{ steps.sync.outputs.created }}
           TAG_NAME: ${{ steps.sync.outputs.tag }}
         run: |
           set -euo pipefail
-          if [[ "$CREATED" == "true" ]]; then
-            echo "Created new tag ${TAG_NAME}; tag-build workflow should start from push event."
+          if [[ "$VERSION_UPDATED" == "true" && "$CREATED" == "true" ]]; then
+            echo "Updated ${UPSTREAM_VERSION_FILE} and created new tag ${TAG_NAME}."
+          elif [[ "$VERSION_UPDATED" == "true" ]]; then
+            echo "Updated ${UPSTREAM_VERSION_FILE}; tag ${TAG_NAME} already existed."
+          elif [[ "$CREATED" == "true" ]]; then
+            echo "Version already current; created missing tag ${TAG_NAME}."
           else
-            echo "No new tag created. Existing latest major tag is ${TAG_NAME}."
+            echo "No changes required. ${UPSTREAM_VERSION_FILE} and tag ${TAG_NAME} are already current."
           fi

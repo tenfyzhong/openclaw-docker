@@ -17,12 +17,14 @@ This repository provides:
 - `scripts/build-image.sh`: local image build/tag helper for Compose
 - `scripts/create-tag.sh`: local release tag creation helper
 - `.github/workflows/tag-build.yml`: builds and pushes Docker image on tag push
-- `.github/workflows/sync-upstream-major.yml`: manual workflow to sync latest upstream major tag
+- `.github/workflows/sync-upstream-major.yml`: manual workflow to sync latest upstream major tag and persist it in-repo
+- `OPENCLAW_UPSTREAM_VERSION`: tracked upstream major version used by sync workflow
 - `.github/workflows/bats-tests.yml`: runs bats unit tests for release and workflow guardrails
 - `tests/create-tag.bats`: unit tests for release tag script
 - `tests/build-image.bats`: unit tests for local image build/tag script
 - `tests/docker-compose.bats`: unit tests for compose image-only guardrails
 - `tests/tag-build-workflow.bats`: unit tests for Docker image publish workflow guardrails
+- `tests/sync-upstream-major-workflow.bats`: unit tests for upstream version sync workflow guardrails
 - `LICENSE`: MIT license
 
 ## Prerequisites
@@ -264,9 +266,14 @@ Workflow: `.github/workflows/tag-build.yml`
 - Docker tags pushed:
   - `tenfyzhong/openclaw:<git-tag-without-v>`
   - `tenfyzhong/openclaw:latest`
-- Platforms:
-  - `linux/amd64`
-  - `linux/arm64`
+- Build strategy:
+  - Runs architecture builds in parallel (`linux/amd64` + `linux/arm64`)
+  - Pushes temporary arch tags:
+    - `tenfyzhong/openclaw:<git-tag-without-v>-amd64`
+    - `tenfyzhong/openclaw:<git-tag-without-v>-arm64`
+  - Publishes multi-arch manifest tags:
+    - `tenfyzhong/openclaw:<git-tag-without-v>`
+    - `tenfyzhong/openclaw:latest`
 - Also creates a GitHub Release for the same tag
 - Release notes include Docker image usage examples:
   - `docker pull tenfyzhong/openclaw:<git-tag-without-v>`
@@ -304,9 +311,12 @@ Run manually from GitHub:
 Behavior:
 
 - Fetches latest stable major tag from `openclaw/openclaw`
-- Runs `git fetch --tags origin`
-- If this repo already has that major tag, exits with no changes
-- If missing, creates and pushes that major tag
+- Uses `OPENCLAW_UPSTREAM_VERSION` to track the synced upstream major version in git
+- If latest upstream major changes:
+  - Updates `OPENCLAW_UPSTREAM_VERSION`
+  - Commits and pushes this version update to the selected branch
+  - Creates and pushes the same version tag from that commit
+- If version file is already current, it only checks whether the tag exists
 - Pushed tag triggers `tag-build.yml` to build/push Docker image
 
 ## Required GitHub Secrets
