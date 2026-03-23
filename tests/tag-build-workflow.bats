@@ -5,20 +5,27 @@ setup() {
   WORKFLOW_FILE="$REPO_ROOT/.github/workflows/tag-build.yml"
 }
 
-@test "tag-build workflow configures multi-arch platforms" {
-  run grep -E '^[[:space:]]*platforms:[[:space:]]*linux/amd64,linux/arm64[[:space:]]*$' "$WORKFLOW_FILE"
+@test "tag-build workflow builds per-arch images in matrix" {
+  run grep -E '^[[:space:]]*strategy:[[:space:]]*$' "$WORKFLOW_FILE"
+  [ "$status" -eq 0 ]
+  run grep -E '^[[:space:]]*matrix:[[:space:]]*$' "$WORKFLOW_FILE"
+  [ "$status" -eq 0 ]
+  run grep -E '^[[:space:]]*platform:[[:space:]]*linux/amd64[[:space:]]*$' "$WORKFLOW_FILE"
+  [ "$status" -eq 0 ]
+  run grep -E '^[[:space:]]*platform:[[:space:]]*linux/arm64[[:space:]]*$' "$WORKFLOW_FILE"
   [ "$status" -eq 0 ]
 }
 
-@test "tag-build workflow sets up QEMU before buildx" {
-  qemu_line="$(grep -nE '^[[:space:]]*uses:[[:space:]]*docker/setup-qemu-action@v3[[:space:]]*$' "$WORKFLOW_FILE" | cut -d: -f1)"
-  buildx_line="$(grep -nE '^[[:space:]]*uses:[[:space:]]*docker/setup-buildx-action@v3[[:space:]]*$' "$WORKFLOW_FILE" | cut -d: -f1)"
-
-  [ -n "$qemu_line" ]
-  [ -n "$buildx_line" ]
-  [ "$qemu_line" -lt "$buildx_line" ]
-
-  run grep -E '^[[:space:]]*uses:[[:space:]]*docker/setup-qemu-action@v3[[:space:]]*$' "$WORKFLOW_FILE"
+@test "tag-build workflow creates multi-arch manifest from per-arch tags" {
+  run grep -E 'docker buildx imagetools create' "$WORKFLOW_FILE"
+  [ "$status" -eq 0 ]
+  run grep -E 'tenfyzhong/openclaw:\$\{\{ needs.parse-tag.outputs.image_tag \}\}-amd64' "$WORKFLOW_FILE"
+  [ "$status" -eq 0 ]
+  run grep -E 'tenfyzhong/openclaw:\$\{\{ needs.parse-tag.outputs.image_tag \}\}-arm64' "$WORKFLOW_FILE"
+  [ "$status" -eq 0 ]
+  run grep -E 'tenfyzhong/openclaw:\$\{\{ needs.parse-tag.outputs.image_tag \}\}' "$WORKFLOW_FILE"
+  [ "$status" -eq 0 ]
+  run grep -E 'tenfyzhong/openclaw:latest' "$WORKFLOW_FILE"
   [ "$status" -eq 0 ]
 }
 
@@ -31,9 +38,9 @@ setup() {
 }
 
 @test "tag-build workflow release notes include docker usage" {
-  run grep -E 'docker pull tenfyzhong/openclaw:\$\{\{ steps.vars.outputs.image_tag \}\}' "$WORKFLOW_FILE"
+  run grep -E 'docker pull tenfyzhong/openclaw:\$\{\{ needs.parse-tag.outputs.image_tag \}\}' "$WORKFLOW_FILE"
   [ "$status" -eq 0 ]
 
-  run grep -E 'OPENCLAW_VERSION=\$\{\{ steps.vars.outputs.image_tag \}\} docker compose up -d' "$WORKFLOW_FILE"
+  run grep -E 'OPENCLAW_VERSION=\$\{\{ needs.parse-tag.outputs.image_tag \}\} docker compose up -d' "$WORKFLOW_FILE"
   [ "$status" -eq 0 ]
 }

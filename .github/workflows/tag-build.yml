@@ -9,12 +9,12 @@ permissions:
   contents: write
 
 jobs:
-  build-and-push:
+  parse-tag:
     runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.vars.outputs.image_tag }}
+      openclaw_major: ${{ steps.vars.outputs.openclaw_major }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
       - name: Parse release tag
         id: vars
         shell: bash
@@ -33,7 +33,23 @@ jobs:
           echo "image_tag=$image_tag" >>"$GITHUB_OUTPUT"
           echo "openclaw_major=$openclaw_major" >>"$GITHUB_OUTPUT"
 
+  build-and-push-arch:
+    needs: parse-tag
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+          - arch: arm64
+            platform: linux/arm64
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Set up QEMU
+        if: ${{ matrix.arch == 'arm64' }}
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
@@ -45,18 +61,49 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push image
+      - name: Build and push architecture image
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platform }}
           build-args: |
-            OPENCLAW_VERSION=${{ steps.vars.outputs.openclaw_major }}
+            OPENCLAW_VERSION=${{ needs.parse-tag.outputs.openclaw_major }}
           tags: |
-            tenfyzhong/openclaw:${{ steps.vars.outputs.image_tag }}
-            tenfyzhong/openclaw:latest
+            tenfyzhong/openclaw:${{ needs.parse-tag.outputs.image_tag }}-${{ matrix.arch }}
 
+  publish-manifest:
+    needs:
+      - parse-tag
+      - build-and-push-arch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Publish multi-arch manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          docker buildx imagetools create \
+            -t tenfyzhong/openclaw:${{ needs.parse-tag.outputs.image_tag }} \
+            -t tenfyzhong/openclaw:latest \
+            tenfyzhong/openclaw:${{ needs.parse-tag.outputs.image_tag }}-amd64 \
+            tenfyzhong/openclaw:${{ needs.parse-tag.outputs.image_tag }}-arm64
+
+  create-github-release:
+    needs:
+      - parse-tag
+      - publish-manifest
+    runs-on: ubuntu-latest
+    steps:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
@@ -67,19 +114,19 @@ jobs:
 
             Published image tags:
 
-            - `tenfyzhong/openclaw:${{ steps.vars.outputs.image_tag }}`
+            - `tenfyzhong/openclaw:${{ needs.parse-tag.outputs.image_tag }}`
             - `tenfyzhong/openclaw:latest`
 
             Pull image:
 
             ```bash
-            docker pull tenfyzhong/openclaw:${{ steps.vars.outputs.image_tag }}
+            docker pull tenfyzhong/openclaw:${{ needs.parse-tag.outputs.image_tag }}
             ```
 
             Run with docker compose:
 
             ```bash
-            OPENCLAW_VERSION=${{ steps.vars.outputs.image_tag }} docker compose up -d
+            OPENCLAW_VERSION=${{ needs.parse-tag.outputs.image_tag }} docker compose up -d
             ```
 
             Run container directly:
@@ -90,5 +137,5 @@ jobs:
               -e OPENCLAW_GATEWAY_BIND=lan \
               -v "$PWD/.docker/openclaw/config:/home/node/.openclaw" \
               -v "$PWD/.docker/openclaw/workspace:/home/node/.openclaw/workspace" \
-              tenfyzhong/openclaw:${{ steps.vars.outputs.image_tag }} gateway
+              tenfyzhong/openclaw:${{ needs.parse-tag.outputs.image_tag }} gateway
             ```
