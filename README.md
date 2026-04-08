@@ -57,11 +57,15 @@ docker compose ps
 # Or: ./scripts/compose.sh ps
 ```
 
+Inside the container, `openclaw gateway status` reports a healthy foreground runtime as `Runtime: running (container foreground)`.
+
 4. Check gateway health endpoint:
 
 ```bash
 curl http://127.0.0.1:18789/healthz
 ```
+
+If you override `OPENCLAW_GATEWAY_PORT`, Compose now publishes the same port on both the host and the container.
 
 5. Read gateway logs:
 
@@ -132,6 +136,8 @@ Notes for first-time setup:
 - Existing onboarding progress is reused from persisted config, so you only need to complete the remaining steps.
 
 ## Persistence and Default Paths
+
+The container runtime identity is fixed to user `node` with home directory `/home/node`. These values are not configurable through environment variables.
 
 By default, Compose maps the following host directories:
 
