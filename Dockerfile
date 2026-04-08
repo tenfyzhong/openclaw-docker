@@ -48,9 +48,9 @@ RUN cat > /usr/local/bin/openclaw-entrypoint.sh <<'ENTRYPOINT_EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
-OPENCLAW_USER="${OPENCLAW_USER:-node}"
-OPENCLAW_GROUP="${OPENCLAW_GROUP:-node}"
-OPENCLAW_HOME="${OPENCLAW_HOME:-/home/node}"
+OPENCLAW_USER="node"
+OPENCLAW_GROUP="node"
+OPENCLAW_HOME="/home/node"
 OPENCLAW_STATE_DIR="${OPENCLAW_STATE_DIR:-${OPENCLAW_HOME}/.openclaw}"
 OPENCLAW_CONFIG_PATH="${OPENCLAW_CONFIG_PATH:-${OPENCLAW_STATE_DIR}/openclaw.json}"
 OPENCLAW_WORKSPACE_DIR="${OPENCLAW_WORKSPACE_DIR:-${OPENCLAW_STATE_DIR}/workspace}"
@@ -101,15 +101,15 @@ fix_permissions() {
 
   # Keep ownership fixes scoped to OpenClaw state paths to avoid rewriting
   # unrelated workspace content on bind mounts.
-  chown "$OPENCLAW_USER:$OPENCLAW_GROUP" "$OPENCLAW_HOME" "$OPENCLAW_STATE_DIR" "$OPENCLAW_WORKSPACE_DIR"
-  chown "$OPENCLAW_USER:$OPENCLAW_GROUP" \
+  chown node:node "$OPENCLAW_HOME" "$OPENCLAW_STATE_DIR" "$OPENCLAW_WORKSPACE_DIR"
+  chown node:node \
     "$(dirname "$OPENCLAW_STDOUT_LOG_PATH")" \
     "$(dirname "$OPENCLAW_STDERR_LOG_PATH")" \
     "$OPENCLAW_STDOUT_LOG_PATH" \
     "$OPENCLAW_STDERR_LOG_PATH"
-  find "$OPENCLAW_STATE_DIR" -xdev -exec chown "$OPENCLAW_USER:$OPENCLAW_GROUP" {} +
+  find "$OPENCLAW_STATE_DIR" -xdev -exec chown node:node {} +
   if [[ -d "$OPENCLAW_WORKSPACE_DIR/.openclaw" ]]; then
-    chown -R "$OPENCLAW_USER:$OPENCLAW_GROUP" "$OPENCLAW_WORKSPACE_DIR/.openclaw"
+    chown -R node:node "$OPENCLAW_WORKSPACE_DIR/.openclaw"
   fi
 }
 
@@ -226,7 +226,7 @@ ensure_config() {
 run_as_node() {
   local cmd=("$@")
   if [[ "$(id -u)" -eq 0 ]]; then
-    exec gosu "$OPENCLAW_USER:$OPENCLAW_GROUP" "${cmd[@]}" >>"$OPENCLAW_STDOUT_LOG_PATH" 2>>"$OPENCLAW_STDERR_LOG_PATH"
+    exec gosu node:node "${cmd[@]}" >>"$OPENCLAW_STDOUT_LOG_PATH" 2>>"$OPENCLAW_STDERR_LOG_PATH"
   fi
   exec "${cmd[@]}" >>"$OPENCLAW_STDOUT_LOG_PATH" 2>>"$OPENCLAW_STDERR_LOG_PATH"
 }
@@ -252,12 +252,47 @@ main() {
 main "$@"
 ENTRYPOINT_EOF
 
-RUN chmod 755 /usr/local/bin/openclaw-entrypoint.sh && \
+RUN mkdir -p /usr/local/libexec
+
+COPY scripts/openclaw-wrapper.sh /usr/local/libexec/openclaw-wrapper.sh
+
+RUN rm -f /usr/local/bin/openclaw && \
+    install -m 755 /usr/local/libexec/openclaw-wrapper.sh /usr/local/bin/openclaw && \
+    chmod 755 /usr/local/bin/openclaw-entrypoint.sh && \
     mkdir -p /home/node/.openclaw/workspace && \
     chown -R node:node /home/node
 
 ENV NODE_ENV=production
 ENV HOME=/home/node
+ENV OPENCLAW_CONTAINER_HINT=openclaw-gateway
+
+RUN /bin/bash -lc 'set -euo pipefail; \
+    if ! command -v npm >/dev/null; then \
+      echo "npm command not found; cannot install developer CLIs" >&2; \
+      exit 1; \
+    fi; \
+    npm install -g --no-audit --no-fund opencode-ai @openai/codex @anthropic-ai/claude-code @larksuite/cli; \
+    npx skills add larksuite/cli -y -g; \
+    NPM_PREFIX="$(npm config get prefix)"; \
+    NPM_BIN="${NPM_PREFIX%/}/bin"; \
+    for cmd in opencode codex claude; do \
+      CLI_BIN="$(command -v "$cmd" || true)"; \
+      if [[ -z "$CLI_BIN" ]] && [[ -x "$NPM_BIN/$cmd" ]]; then \
+        CLI_BIN="$NPM_BIN/$cmd"; \
+      elif [[ -z "$CLI_BIN" ]] && [[ -x /root/.npm-global/bin/"$cmd" ]]; then \
+        CLI_BIN=/root/.npm-global/bin/"$cmd"; \
+      elif [[ -z "$CLI_BIN" ]] && [[ -x /root/.local/bin/"$cmd" ]]; then \
+        CLI_BIN=/root/.local/bin/"$cmd"; \
+      fi; \
+      if [[ -z "$CLI_BIN" ]]; then \
+        echo "$cmd command not found after npm install" >&2; \
+        exit 1; \
+      fi; \
+      ln -sf "$CLI_BIN" "/usr/local/bin/$cmd"; \
+      "/usr/local/bin/$cmd" --help >/dev/null; \
+    done'
+
+USER node
 
 EXPOSE 18789 18790
 
