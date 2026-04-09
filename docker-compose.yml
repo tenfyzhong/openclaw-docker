@@ -18,8 +18,7 @@ services:
       CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY:-}
       CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE:-}
     volumes:
-      - ${OPENCLAW_CONFIG_DIR:-./openclaw-data}:/home/node/.openclaw
-      - ${OPENCLAW_WORKSPACE_DIR:-./openclaw-data/workspace}:/home/node/.openclaw/workspace
+      - ${OPENCLAW_HOME_DIR:-./openclaw-home}:/home/node
       ## Uncomment the line below to pass host Docker socket into the container.
       # - /var/run/docker.sock:/var/run/docker.sock
     ports:
