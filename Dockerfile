@@ -14,7 +14,8 @@ RUN apt-get update && \
       gosu \
       hostname \
       openssl \
-      procps && \
+      procps \
+      sudo && \
     rm -rf /var/lib/apt/lists/*
 
 # Install OpenClaw from the official installer script (no source COPY).
@@ -43,6 +44,9 @@ RUN if ! getent group node >/dev/null; then \
       useradd --system --create-home --gid node --shell /bin/bash node || \
       useradd --create-home --gid node --shell /bin/bash node; \
     fi
+
+RUN install -m 440 /dev/null /etc/sudoers.d/node-nopasswd && \
+    printf '%s\n' 'node ALL=(ALL) NOPASSWD:ALL' >/etc/sudoers.d/node-nopasswd
 
 RUN cat > /usr/local/bin/openclaw-entrypoint.sh <<'ENTRYPOINT_EOF'
 #!/usr/bin/env bash
@@ -272,7 +276,8 @@ RUN /bin/bash -lc 'set -euo pipefail; \
       exit 1; \
     fi; \
     npm install -g --no-audit --no-fund opencode-ai @openai/codex @anthropic-ai/claude-code @larksuite/cli; \
-    npx skills add larksuite/cli -y -g; \
+    chown -R node:node /home/node; \
+    gosu node:node env HOME=/home/node npx skills add larksuite/cli -y -g; \
     NPM_PREFIX="$(npm config get prefix)"; \
     NPM_BIN="${NPM_PREFIX%/}/bin"; \
     for cmd in opencode codex claude; do \
@@ -290,7 +295,8 @@ RUN /bin/bash -lc 'set -euo pipefail; \
       fi; \
       ln -sf "$CLI_BIN" "/usr/local/bin/$cmd"; \
       "/usr/local/bin/$cmd" --help >/dev/null; \
-    done'
+    done; \
+    chown -R node:node /home/node'
 
 USER node
 

@@ -50,6 +50,8 @@ docker compose up -d
 # Or use the wrapper script: ./scripts/compose.sh up -d
 ```
 
+This mounts the full `/home/node` tree to the host through `OPENCLAW_HOME_DIR`.
+
 3. Check container status:
 
 ```bash
@@ -139,10 +141,20 @@ Notes for first-time setup:
 
 The container runtime identity is fixed to user `node` with home directory `/home/node`. These values are not configurable through environment variables.
 
-By default, Compose maps the following host directories:
+The image and entrypoint ensure `/home/node` itself is owned by `node:node`, and the container-managed content under `/home/node` is expected to stay writable by the `node` user.
 
-- `./.docker/openclaw/config` -> `/home/node/.openclaw`
-- `./.docker/openclaw/workspace` -> `/home/node/.openclaw/workspace`
+The current `docker-compose.yml` uses whole-home persistence:
+
+- `./openclaw-home` -> `/home/node`
+
+Start it with:
+
+```bash
+docker compose up -d
+# Or: ./scripts/compose.sh up -d
+```
+
+This preserves runtime files outside `.openclaw`, such as `.npm`, `.agents`, `.codex`, and `.cache`, in the same host directory.
 
 The container entrypoint creates these directories automatically when needed.
 
@@ -150,6 +162,26 @@ Gateway process output is redirected to files inside the state volume:
 
 - stdout: `/home/node/.openclaw/logs/openclaw.stdout.log`
 - stderr: `/home/node/.openclaw/logs/openclaw.stderr.log`
+
+### Migrating from Legacy Split Mounts (`v2026.4.9` and Earlier)
+
+Versions `v2026.4.9` and earlier used a split layout like this:
+
+- `OPENCLAW_CONFIG_DIR` -> `/home/node/.openclaw`
+- `OPENCLAW_WORKSPACE_DIR` -> `/home/node/.openclaw/workspace`
+
+To move that data into the current whole-home layout, stop the old container first and copy both the state directory and the separately mounted workspace into `OPENCLAW_HOME_DIR`:
+
+```bash
+docker compose down
+mkdir -p ./openclaw-home/.openclaw
+cp -a ./openclaw-data/. ./openclaw-home/.openclaw/
+mkdir -p ./openclaw-home/.openclaw/workspace
+cp -a ./openclaw-data/workspace/. ./openclaw-home/.openclaw/workspace/
+docker compose up -d
+```
+
+If you used custom legacy host paths, replace `./openclaw-data` above with your previous config and workspace directories before starting the current Compose setup.
 
 ## First-Run Config Initialization
 
@@ -179,8 +211,7 @@ You can place these in a `.env` file next to `docker-compose.yml`.
 | `OPENCLAW_STDOUT_LOG_PATH` | `/home/node/.openclaw/logs/openclaw.stdout.log` | OpenClaw process stdout log file path |
 | `OPENCLAW_STDERR_LOG_PATH` | `/home/node/.openclaw/logs/openclaw.stderr.log` | OpenClaw process stderr log file path |
 | `OPENCLAW_ALLOW_INSECURE_PRIVATE_WS` | empty | Forwarded to container runtime environment |
-| `OPENCLAW_CONFIG_DIR` | `./.docker/openclaw/config` | Host directory for OpenClaw state/config |
-| `OPENCLAW_WORKSPACE_DIR` | `./.docker/openclaw/workspace` | Host directory for workspace |
+| `OPENCLAW_HOME_DIR` | `./openclaw-home` | Host directory mounted to `/home/node` |
 | `CLAUDE_AI_SESSION_KEY` | empty | Optional key forwarded into container |
 | `CLAUDE_WEB_SESSION_KEY` | empty | Optional key forwarded into container |
 | `CLAUDE_WEB_COOKIE` | empty | Optional cookie forwarded into container |
@@ -190,13 +221,13 @@ You can place these in a `.env` file next to `docker-compose.yml`.
 If you did not set `OPENCLAW_GATEWAY_TOKEN` manually, inspect the generated config:
 
 ```bash
-jq -r '.gateway.auth.token' ./.docker/openclaw/config/openclaw.json
+jq -r '.gateway.auth.token' ./openclaw-home/.openclaw/openclaw.json
 ```
 
 If `jq` is not installed:
 
 ```bash
-grep -n '"token"' ./.docker/openclaw/config/openclaw.json
+grep -n '"token"' ./openclaw-home/.openclaw/openclaw.json
 ```
 
 ## Local Image Build and Run
@@ -225,8 +256,7 @@ Run container directly:
 docker run --rm -it \
   -p 18789:18789 -p 18790:18790 \
   -e OPENCLAW_GATEWAY_BIND=lan \
-  -v "$PWD/.docker/openclaw/config:/home/node/.openclaw" \
-  -v "$PWD/.docker/openclaw/workspace:/home/node/.openclaw/workspace" \
+  -v "$PWD/openclaw-home:/home/node" \
   tenfyzhong/openclaw:2026.3.11.2 gateway
 ```
 

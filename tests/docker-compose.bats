@@ -16,9 +16,30 @@ setup() {
 }
 
 @test "docker-compose maps published ports to the same configurable container ports" {
-  run grep -F '      - "${OPENCLAW_GATEWAY_PORT:-18789}:${OPENCLAW_GATEWAY_PORT:-18789}"' "$COMPOSE_FILE"
+  run grep -F '    - "${OPENCLAW_GATEWAY_PORT:-18789}:${OPENCLAW_GATEWAY_PORT:-18789}"' "$COMPOSE_FILE"
   [ "$status" -eq 0 ]
 
-  run grep -F '      - "${OPENCLAW_BRIDGE_PORT:-18790}:${OPENCLAW_BRIDGE_PORT:-18790}"' "$COMPOSE_FILE"
+  run grep -F '    - "${OPENCLAW_BRIDGE_PORT:-18790}:${OPENCLAW_BRIDGE_PORT:-18790}"' "$COMPOSE_FILE"
+  [ "$status" -eq 0 ]
+}
+
+@test "docker-compose mounts /home/node from OPENCLAW_HOME_DIR by default" {
+  run grep -F '      - ${OPENCLAW_HOME_DIR:-./openclaw-home}:/home/node' "$COMPOSE_FILE"
+  [ "$status" -eq 0 ]
+}
+
+@test "docker-compose does not keep legacy split-mount compatibility" {
+  run grep -F 'openclaw-gateway-legacy' "$COMPOSE_FILE"
+  [ "$status" -eq 1 ]
+
+  run grep -F 'OPENCLAW_CONFIG_DIR' "$COMPOSE_FILE"
+  [ "$status" -eq 1 ]
+
+  run grep -F 'OPENCLAW_WORKSPACE_DIR' "$COMPOSE_FILE"
+  [ "$status" -eq 1 ]
+}
+
+@test "docker-compose does not need a separate whole-home compose file" {
+  run test ! -e "$REPO_ROOT/docker-compose.home.yml"
   [ "$status" -eq 0 ]
 }

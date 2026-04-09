@@ -49,6 +49,48 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "dockerfile restores /home/node ownership after root-run cli install" {
+  run bash -lc '
+    set -euo pipefail
+    npm_line="$(grep -nF "npx skills add larksuite/cli -y -g; \\" "$1" | tail -n1 | cut -d: -f1)"
+    chown_line="$(grep -nF "chown -R node:node /home/node" "$1" | tail -n1 | cut -d: -f1)"
+    [[ -n "$npm_line" ]]
+    [[ -n "$chown_line" ]]
+    (( npm_line < chown_line ))
+  ' bash "$DOCKERFILE"
+  [ "$status" -eq 0 ]
+}
+
+@test "dockerfile installs sudo for the node user" {
+  run grep -F '      sudo && \' "$DOCKERFILE"
+  [ "$status" -eq 0 ]
+}
+
+@test "dockerfile grants passwordless sudo to node" {
+  run grep -F "install -m 440 /dev/null /etc/sudoers.d/node-nopasswd" "$DOCKERFILE"
+  [ "$status" -eq 0 ]
+
+  run grep -F "node ALL=(ALL) NOPASSWD:ALL" "$DOCKERFILE"
+  [ "$status" -eq 0 ]
+}
+
+@test "dockerfile installs larksuite skills as node with node home" {
+  run grep -F 'gosu node:node env HOME=/home/node npx skills add larksuite/cli -y -g; \' "$DOCKERFILE"
+  [ "$status" -eq 0 ]
+}
+
+@test "dockerfile repairs /home/node ownership before node-context skills install" {
+  run bash -lc '
+    set -euo pipefail
+    skills_line="$(grep -nF "gosu node:node env HOME=/home/node npx skills add larksuite/cli -y -g; \\" "$1" | tail -n1 | cut -d: -f1)"
+    chown_line="$(grep -nF "chown -R node:node /home/node; \\" "$1" | head -n1 | cut -d: -f1)"
+    [[ -n "$skills_line" ]]
+    [[ -n "$chown_line" ]]
+    (( chown_line < skills_line ))
+  ' bash "$DOCKERFILE"
+  [ "$status" -eq 0 ]
+}
+
 @test "dockerfile installs the openclaw container status wrapper" {
   run grep -F 'COPY scripts/openclaw-wrapper.sh /usr/local/libexec/openclaw-wrapper.sh' "$DOCKERFILE"
   [ "$status" -eq 0 ]
