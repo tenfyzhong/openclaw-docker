@@ -5,7 +5,9 @@ FROM ubuntu:24.04
 ARG DEBIAN_FRONTEND=noninteractive
 ARG OPENCLAW_VERSION=latest
 
-RUN apt-get update && \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
       ca-certificates \
       curl \
@@ -15,8 +17,7 @@ RUN apt-get update && \
       hostname \
       openssl \
       procps \
-      sudo && \
-    rm -rf /var/lib/apt/lists/*
+      sudo
 
 # Install OpenClaw from the official installer script (no source COPY).
 RUN curl -fsSL https://openclaw.ai/install.sh | bash -s -- --no-onboard --version "${OPENCLAW_VERSION}"

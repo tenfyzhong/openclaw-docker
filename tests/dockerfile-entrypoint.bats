@@ -62,7 +62,7 @@ setup() {
 }
 
 @test "dockerfile installs sudo for the node user" {
-  run grep -F '      sudo && \' "$DOCKERFILE"
+  run grep -E '^[[:space:]]*sudo[[:space:]]*$' "$DOCKERFILE"
   [ "$status" -eq 0 ]
 }
 
