@@ -5,27 +5,34 @@ setup() {
   WORKFLOW_FILE="$REPO_ROOT/.github/workflows/tag-build.yml"
 }
 
-@test "tag-build workflow builds per-arch images in matrix" {
-  run grep -E '^[[:space:]]*strategy:[[:space:]]*$' "$WORKFLOW_FILE"
+@test "tag-build workflow builds and pushes a single multi-platform image with cache" {
+  run grep -E '^[[:space:]]*build-and-push:[[:space:]]*$' "$WORKFLOW_FILE"
   [ "$status" -eq 0 ]
-  run grep -E '^[[:space:]]*matrix:[[:space:]]*$' "$WORKFLOW_FILE"
+
+  run grep -E '^[[:space:]]*platforms:[[:space:]]*linux/amd64,linux/arm64[[:space:]]*$' "$WORKFLOW_FILE"
   [ "$status" -eq 0 ]
-  run grep -E '^[[:space:]]*platform:[[:space:]]*linux/amd64[[:space:]]*$' "$WORKFLOW_FILE"
+
+  run grep -E '^[[:space:]]*cache-from:[[:space:]]*type=gha,scope=openclaw-docker[[:space:]]*$' "$WORKFLOW_FILE"
   [ "$status" -eq 0 ]
-  run grep -E '^[[:space:]]*platform:[[:space:]]*linux/arm64[[:space:]]*$' "$WORKFLOW_FILE"
+
+  run grep -E '^[[:space:]]*cache-to:[[:space:]]*type=gha,scope=openclaw-docker,mode=max[[:space:]]*$' "$WORKFLOW_FILE"
+  [ "$status" -eq 0 ]
+
+  run grep -E 'tenfyzhong/openclaw:\$\{\{ needs.parse-tag.outputs.image_tag \}\}[[:space:]]*$' "$WORKFLOW_FILE"
+  [ "$status" -eq 0 ]
+
+  run grep -E 'tenfyzhong/openclaw:latest[[:space:]]*$' "$WORKFLOW_FILE"
   [ "$status" -eq 0 ]
 }
 
-@test "tag-build workflow creates multi-arch manifest from per-arch tags" {
-  run grep -E 'docker buildx imagetools create' "$WORKFLOW_FILE"
+@test "tag-build workflow no longer uses per-arch jobs or manual manifest assembly" {
+  run bash -lc '! grep -qF "build-and-push-arch:" "$1"' bash "$WORKFLOW_FILE"
   [ "$status" -eq 0 ]
-  run grep -E 'tenfyzhong/openclaw:\$\{\{ needs.parse-tag.outputs.image_tag \}\}-amd64' "$WORKFLOW_FILE"
+
+  run bash -lc '! grep -qF "publish-manifest:" "$1"' bash "$WORKFLOW_FILE"
   [ "$status" -eq 0 ]
-  run grep -E 'tenfyzhong/openclaw:\$\{\{ needs.parse-tag.outputs.image_tag \}\}-arm64' "$WORKFLOW_FILE"
-  [ "$status" -eq 0 ]
-  run grep -E 'tenfyzhong/openclaw:\$\{\{ needs.parse-tag.outputs.image_tag \}\}' "$WORKFLOW_FILE"
-  [ "$status" -eq 0 ]
-  run grep -E 'tenfyzhong/openclaw:latest' "$WORKFLOW_FILE"
+
+  run bash -lc '! grep -qF "docker buildx imagetools create" "$1"' bash "$WORKFLOW_FILE"
   [ "$status" -eq 0 ]
 }
 
