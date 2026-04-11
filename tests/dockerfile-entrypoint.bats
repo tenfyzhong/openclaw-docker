@@ -66,6 +66,14 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "dockerfile caches apt metadata and packages with buildkit mounts" {
+  run grep -F 'RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \' "$DOCKERFILE"
+  [ "$status" -eq 0 ]
+
+  run grep -F '    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \' "$DOCKERFILE"
+  [ "$status" -eq 0 ]
+}
+
 @test "dockerfile grants passwordless sudo to node" {
   run grep -F "install -m 440 /dev/null /etc/sudoers.d/node-nopasswd" "$DOCKERFILE"
   [ "$status" -eq 0 ]
